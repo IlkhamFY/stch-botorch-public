@@ -78,21 +78,57 @@ for k in range(K):
 
 see [`examples/simple_mobo.py`](examples/simple_mobo.py) for a complete working example.
 
+### standalone (no botorch needed)
+
+if you're not doing bayesian optimization — maybe you're optimizing quantum circuits, neural architectures, or anything else with multiple objectives — use the standalone API:
+
+```python
+from stch_botorch.stch_standalone import stch_scalarize, generate_stch_weights
+
+# works with any differentiable function
+def my_objectives(x):
+    return torch.stack([f1(x), f2(x), f3(x)])
+
+weights = generate_stch_weights(m=3, K=6, mu=0.01)
+
+# optimize each weight vector with your favorite optimizer
+for k in range(6):
+    loss = stch_scalarize(my_objectives(x), weights[k], mu=0.1)
+    loss.backward()  # smooth gradients everywhere
+```
+
+or use the all-in-one optimizer:
+
+```python
+from stch_botorch.stch_standalone import multi_objective_optimize
+
+solutions, objectives = multi_objective_optimize(
+    objective_fn=my_objectives, dim=10, m=3, K=6
+)
+# solutions: 6 Pareto-approximate points, each targeting a different trade-off
+```
+
+see [`examples/standalone_optimization.py`](examples/standalone_optimization.py) and [`examples/vqe_multi_objective.py`](examples/vqe_multi_objective.py) for complete examples.
+
 ## what's inside
 
 ```
 src/stch_botorch/
-├── scalarization_botorch.py   # get_stch_scalarization (core)
-├── weight_selection.py        # select_stch_weights (STCH-Set coverage)
+├── stch_standalone.py         # pure PyTorch — no BoTorch needed
+├── scalarization_botorch.py   # BoTorch integration (drop-in replacement)
+├── weight_selection.py        # STCH-Set coverage-optimal weights
 └── acquisition/
-    └── parego_stch.py         # qLogSTCHParEGO (ready-to-use acqf)
+    └── parego_stch.py         # qLogSTCHParEGO acquisition function
 ```
 
-| component | what it does | replaces |
-|-----------|-------------|----------|
-| `get_stch_scalarization` | smooth tchebycheff via LogSumExp | `get_chebyshev_scalarization` |
-| `select_stch_weights` | coverage-optimal weights on simplex | `sample_simplex` (random dirichlet) |
-| `qLogSTCHParEGO` | acquisition function with STCH | `qLogNParEGO` |
+| component | what it does | needs botorch? |
+|-----------|-------------|:-:|
+| `stch_scalarize` | scalarize objectives with STCH | no |
+| `generate_stch_weights` | coverage-optimal weight vectors | no |
+| `multi_objective_optimize` | full multi-objective optimizer | no |
+| `get_stch_scalarization` | BoTorch-compatible scalarization | yes |
+| `select_stch_weights` | same as generate, with more options | no |
+| `qLogSTCHParEGO` | acquisition function for BO | yes |
 
 ## key parameters
 
